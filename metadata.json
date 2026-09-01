@@ -1,0 +1,6 @@
+{
+  "name": "우리들의 이야기",
+  "description": "학생들이 직접 만든 음원을 감상하고 공유할 수 있는 감성 반응형 오디오 플레이어 웹 플랫폼",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
