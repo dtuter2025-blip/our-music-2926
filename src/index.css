@@ -44,4 +44,23 @@ body {
   font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, 'Helvetica Neue', 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif;
   background-color: #FFF9F5;
   color: #1A1A1A;
+  overflow-x: hidden;
 }
+
+/* Netlify and external floating badge safety relocation */
+[data-netlify-badge],
+.netlify-badge,
+iframe[title*="Netlify"],
+div[id*="netlify-feedback"] {
+  bottom: 85px !important;
+  z-index: 30 !important;
+  opacity: 0.65;
+  transition: opacity 0.2s ease;
+}
+
+[data-netlify-badge]:hover,
+.netlify-badge:hover,
+div[id*="netlify-feedback"]:hover {
+  opacity: 1;
+}
+

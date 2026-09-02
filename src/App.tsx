@@ -360,7 +360,7 @@ export default function App() {
   const progressRatio = playerState.duration > 0 ? (playerState.currentTime / playerState.duration) * 100 : 0;
 
   return (
-    <div className="min-h-screen bg-[#FFF9F5] text-slate-800 pb-36 flex flex-col font-sans selection:bg-[#FF6B35] selection:text-white">
+    <div className="min-h-screen bg-[#FFF9F5] text-slate-800 pb-52 sm:pb-40 flex flex-col font-sans selection:bg-[#FF6B35] selection:text-white">
       {/* Hidden audio element */}
       <audio
         ref={audioRef}
@@ -368,14 +368,14 @@ export default function App() {
       />
 
       {/* Top Navigation Bar */}
-      <nav className="sticky top-0 z-30 bg-[#FFF9F5]/90 backdrop-blur-md border-b border-orange-100/80 px-4 sm:px-8 py-4">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 bg-[#FF6B35] rounded-2xl flex items-center justify-center shadow-lg shadow-orange-200 text-white">
-              <Music className="w-6 h-6 stroke-[2.5]" />
+      <nav className="sticky top-0 z-30 bg-[#FFF9F5]/95 backdrop-blur-md border-b border-orange-100/80 px-3 sm:px-8 py-3 sm:py-4">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 sm:gap-4">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <div className="w-9 h-9 sm:w-11 sm:h-11 bg-[#FF6B35] rounded-xl sm:rounded-2xl flex items-center justify-center shadow-md sm:shadow-lg shadow-orange-200 text-white flex-shrink-0">
+              <Music className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.5]" />
             </div>
-            <div>
-              <h1 className="text-xl sm:text-2xl font-black tracking-tight text-[#1A1A1A]">
+            <div className="min-w-0">
+              <h1 className="text-base sm:text-2xl font-black tracking-tight text-[#1A1A1A] whitespace-nowrap">
                 우리들의 이야기
               </h1>
               <span className="hidden sm:inline-block text-[11px] font-bold text-slate-400">
@@ -384,12 +384,12 @@ export default function App() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5 sm:gap-3.5">
-            {/* Admin Mode Toggle Button (Positioned right before cloud sync badge) */}
+          <div className="flex items-center gap-1.5 sm:gap-3.5 flex-shrink-0">
+            {/* Admin Mode Toggle Button */}
             <button
               type="button"
               onClick={() => setIsAdminModalOpen(true)}
-              className={`inline-flex items-center gap-1.5 px-3 sm:px-3.5 py-2 rounded-2xl text-xs font-black transition-all ${
+              className={`inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl text-[11px] sm:text-xs font-black transition-all ${
                 isAdmin
                   ? 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-md shadow-emerald-200'
                   : 'bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 shadow-sm'
@@ -398,12 +398,13 @@ export default function App() {
             >
               {isAdmin ? (
                 <>
-                  <ShieldCheck className="w-4 h-4 text-white" />
-                  <span>관리자 모드 켜짐</span>
+                  <ShieldCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
+                  <span className="hidden sm:inline">관리자 모드 켜짐</span>
+                  <span className="sm:hidden">관리자 ON</span>
                 </>
               ) : (
                 <>
-                  <Shield className="w-4 h-4 text-slate-500" />
+                  <Shield className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-500" />
                   <span>관리자 모드</span>
                 </>
               )}
@@ -419,10 +420,10 @@ export default function App() {
             <button
               type="button"
               onClick={() => setIsUploadModalOpen(true)}
-              className="inline-flex items-center gap-2 px-4.5 py-2.5 rounded-2xl bg-[#FF6B35] hover:bg-[#ff7b4b] text-white text-xs font-black shadow-lg shadow-orange-200 hover:scale-105 active:scale-95 transition-all"
+              className="inline-flex items-center gap-1 sm:gap-2 px-3 sm:px-4.5 py-1.5 sm:py-2.5 rounded-xl sm:rounded-2xl bg-[#FF6B35] hover:bg-[#ff7b4b] text-white text-[11px] sm:text-xs font-black shadow-md sm:shadow-lg shadow-orange-200 hover:scale-105 active:scale-95 transition-all"
             >
-              <Plus className="w-4 h-4 stroke-[3]" />
-              <span>음원 올리기</span>
+              <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[3]" />
+              <span className="whitespace-nowrap">음원 올리기</span>
             </button>
           </div>
         </div>
@@ -714,6 +715,9 @@ export default function App() {
               ))}
             </div>
           )}
+
+          {/* Bottom spacing spacer so floating player never obstructs the lowest cards */}
+          <div className="h-16 sm:h-8" aria-hidden="true" />
         </section>
       </main>
 
