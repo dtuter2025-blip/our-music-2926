@@ -65,6 +65,7 @@ export async function saveSongWithAudio(
     duration: newSongData.duration || 0,
     createdAt: newSongData.createdAt,
     description: newSongData.description || '',
+    lyrics: newSongData.lyrics ? newSongData.lyrics.trim() : '',
     likes: 0,
     tags: newSongData.tags || ['발라드 (Ballad)'],
     chunkCount: chunks.length,

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Play, Pause, Heart, User, Calendar, Volume2, Trash2 } from 'lucide-react';
+import { Play, Pause, Heart, User, Calendar, Volume2, Trash2, FileText } from 'lucide-react';
 import { Song } from '../types';
 
 interface SongCardProps {
@@ -9,6 +9,7 @@ interface SongCardProps {
   onPlay: (song: Song) => void;
   onToggleLike: (id: string) => void;
   onDelete?: (id: string) => void;
+  onOpenLyrics?: (song: Song) => void;
 }
 
 export const SongCard: React.FC<SongCardProps> = ({
@@ -18,6 +19,7 @@ export const SongCard: React.FC<SongCardProps> = ({
   onPlay,
   onToggleLike,
   onDelete,
+  onOpenLyrics,
 }) => {
   const isPlayingThis = isCurrent && isPlaying;
 
@@ -132,19 +134,35 @@ export const SongCard: React.FC<SongCardProps> = ({
 
         {/* Card Footer Actions */}
         <div className="mt-4 pt-3.5 border-t border-orange-50 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5 flex-wrap">
             {song.tags && song.tags.length > 0 ? (
-              <span className="px-3 py-1 rounded-full bg-orange-100 text-[#FF6B35] text-[11px] font-black">
+              <span className="px-2.5 py-1 rounded-full bg-orange-100 text-[#FF6B35] text-[11px] font-black">
                 #{song.tags[0]}
               </span>
             ) : (
-              <span className="px-3 py-1 rounded-full bg-orange-100 text-[#FF6B35] text-[11px] font-black">
+              <span className="px-2.5 py-1 rounded-full bg-orange-100 text-[#FF6B35] text-[11px] font-black">
                 #학생작곡
               </span>
             )}
+
+            {onOpenLyrics && (
+              <button
+                type="button"
+                onClick={() => onOpenLyrics(song)}
+                className={`px-2.5 py-1 rounded-xl text-[11px] font-black inline-flex items-center gap-1 transition-all ${
+                  song.lyrics
+                    ? 'bg-orange-50 hover:bg-[#FF6B35] text-[#FF6B35] hover:text-white border border-orange-200/80 shadow-2xs hover:shadow-sm'
+                    : 'bg-slate-50 hover:bg-slate-100 text-slate-400'
+                }`}
+                title={song.lyrics ? '전체 가사보기' : '가사 정보 확인'}
+              >
+                <FileText className="w-3 h-3" />
+                <span>가사보기</span>
+              </button>
+            )}
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 flex-shrink-0">
             {onDelete && (
               <button
                 type="button"

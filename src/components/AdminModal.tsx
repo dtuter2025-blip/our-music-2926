@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ShieldCheck, ShieldAlert, X, KeyRound, Lock, Unlock } from 'lucide-react';
+import { ShieldCheck, ShieldAlert, X, KeyRound, Lock, Unlock, Plus, Info } from 'lucide-react';
 
 interface AdminModalProps {
   isOpen: boolean;
@@ -7,6 +7,8 @@ interface AdminModalProps {
   onClose: () => void;
   onLogin: (password: string) => boolean;
   onLogout: () => void;
+  onOpenUpload?: () => void;
+  notice?: string;
 }
 
 export const AdminModal: React.FC<AdminModalProps> = ({
@@ -15,6 +17,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   onClose,
   onLogin,
   onLogout,
+  onOpenUpload,
+  notice,
 }) => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState(false);
@@ -28,6 +32,9 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       setPassword('');
       setError(false);
       onClose();
+      if (notice && onOpenUpload) {
+        onOpenUpload();
+      }
     } else {
       setError(true);
       setPassword('');
@@ -72,15 +79,29 @@ export const AdminModal: React.FC<AdminModalProps> = ({
         <div className="p-6">
           {isAdmin ? (
             <div className="space-y-4 text-center">
-              <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold space-y-1">
+              <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold space-y-1.5">
                 <div className="flex items-center justify-center gap-1.5 text-emerald-600 font-black">
                   <Unlock className="w-4 h-4" />
                   <span>현재 관리자 모드입니다</span>
                 </div>
                 <p className="text-[11px] text-emerald-700 font-medium">
-                  모든 곡 카드의 삭제(휴지통) 아이콘이 표시되며 음원을 관리할 수 있습니다.
+                  관리자 권한으로 음원 업로드와 등록된 음원 삭제가 가능합니다.
                 </p>
               </div>
+
+              {onOpenUpload && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleClose();
+                    onOpenUpload();
+                  }}
+                  className="w-full py-2.5 rounded-2xl bg-[#FF6B35] hover:bg-[#ff7b4b] text-white text-xs font-black shadow-md shadow-orange-200 transition-colors flex items-center justify-center gap-1.5"
+                >
+                  <Plus className="w-4 h-4 stroke-[3]" />
+                  <span>새 음원 등록하기</span>
+                </button>
+              )}
 
               <div className="flex gap-2">
                 <button
@@ -104,6 +125,13 @@ export const AdminModal: React.FC<AdminModalProps> = ({
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
+              {notice && (
+                <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold flex items-start gap-2">
+                  <Info className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                  <p className="leading-snug">{notice}</p>
+                </div>
+              )}
+
               <div>
                 <label className="block text-xs font-black text-slate-500 uppercase tracking-wider mb-1.5">
                   비밀번호

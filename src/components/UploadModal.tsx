@@ -1,23 +1,29 @@
 import React, { useState, useRef } from 'react';
-import { X, Upload, Music, Image as ImageIcon, Sparkles, Check, AlertCircle, Loader2 } from 'lucide-react';
+import { X, Upload, Music, Image as ImageIcon, Sparkles, Check, AlertCircle, Loader2, FileText } from 'lucide-react';
 import { Song } from '../types';
 
-export const GENRES = [
-  '디스코 (Disco)',
-  '재즈 (Jazz)',
-  '힙합 (Hip-hop)',
-  '시티팝 (City Pop)',
-  '록 (Rock)',
-  'R&B (알앤비)',
-  'EDM (일렉트로닉 댄스 뮤직)',
-  '발라드 (Ballad)',
-  '보사노바 (Bossa Nova)',
-  '레게 (Reggae)',
-  '트로트 (Trot)',
+export const SUGGESTED_GENRES = [
+  '발라드',
+  '팝',
+  '힙합',
+  '어쿠스틱',
+  'R&B',
+  '댄스',
+  '재즈',
+  '록',
+  '인디',
+  '시티팝',
+  'EDM',
+  '피아노/연주곡',
+  'OST',
+  '트로트',
 ];
+
+export const GENRES = SUGGESTED_GENRES;
 
 interface UploadModalProps {
   isOpen: boolean;
+  isAdmin?: boolean;
   onClose: () => void;
   onAddSong: (newSong: Omit<Song, 'id' | 'likes'>, onProgress?: (msg: string) => void) => Promise<void> | void;
 }
@@ -37,13 +43,15 @@ const PRESET_COVERS = [
 
 export const UploadModal: React.FC<UploadModalProps> = ({
   isOpen,
+  isAdmin = true,
   onClose,
   onAddSong,
 }) => {
   const [title, setTitle] = useState('');
   const [artist, setArtist] = useState('');
   const [description, setDescription] = useState('');
-  const [tag, setTag] = useState(GENRES[0]);
+  const [lyrics, setLyrics] = useState('');
+  const [tag, setTag] = useState('발라드');
   const [coverUrl, setCoverUrl] = useState(PRESET_COVERS[0]);
   const [coverFileName, setCoverFileName] = useState('');
   const [audioUrl, setAudioUrl] = useState('');
@@ -139,6 +147,11 @@ export const UploadModal: React.FC<UploadModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (!isAdmin) {
+      setError('관리자 권한이 있는 사용자만 음원을 업로드할 수 있습니다.');
+      return;
+    }
+
     if (!title.trim()) {
       setError('곡 제목을 입력해주세요.');
       return;
@@ -149,6 +162,10 @@ export const UploadModal: React.FC<UploadModalProps> = ({
     }
     if (!audioUrl) {
       setError('MP3 음원 파일을 등록하거나 업로드해주세요.');
+      return;
+    }
+    if (!tag.trim()) {
+      setError('장르 태그를 입력해주세요 (직접 입력 또는 추천 태그 클릭).');
       return;
     }
 
@@ -168,7 +185,8 @@ export const UploadModal: React.FC<UploadModalProps> = ({
           fileName: audioFileName || 'student_music.mp3',
           createdAt: dateStr,
           description: description.trim() || '',
-          tags: tag ? [tag] : [GENRES[0]],
+          lyrics: lyrics.trim() || '',
+          tags: [tag.trim().replace(/^#/, '') || '자작곡'],
         },
         (msg) => setUploadStatus(msg)
       );
@@ -177,6 +195,8 @@ export const UploadModal: React.FC<UploadModalProps> = ({
       setTitle('');
       setArtist('');
       setDescription('');
+      setLyrics('');
+      setTag('발라드');
       setAudioUrl('');
       setAudioFileName('');
       setAudioFileSize('');
@@ -386,9 +406,9 @@ export const UploadModal: React.FC<UploadModalProps> = ({
             </div>
           </div>
 
-          {/* 4. Description & Tag */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="sm:col-span-2">
+          {/* 4. Description & Custom Genre Input */}
+          <div className="space-y-4">
+            <div>
               <label className="block text-xs font-black text-slate-500 uppercase tracking-wider mb-1.5">
                 곡 소개 및 소감 (선택)
               </label>
@@ -397,25 +417,67 @@ export const UploadModal: React.FC<UploadModalProps> = ({
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="음악 시간에 직접 작곡한 소감을 적어보세요"
-                className="w-full px-4 py-2.5 rounded-2xl bg-[#FFF9F5] border border-orange-100 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:bg-white"
+                className="w-full px-4 py-2.5 rounded-2xl bg-[#FFF9F5] border border-orange-100 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:bg-white text-slate-900"
               />
             </div>
+
             <div>
-              <label className="block text-xs font-black text-slate-500 uppercase tracking-wider mb-1.5">
-                장르 태그 <span className="text-[#FF6B35]">*</span>
-              </label>
-              <select
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-black text-slate-500 uppercase tracking-wider">
+                  장르 태그 <span className="text-[#FF6B35]">*</span>
+                </label>
+                <span className="text-[11px] font-bold text-slate-400">직접 입력 가능</span>
+              </div>
+              <input
+                type="text"
+                required
                 value={tag}
                 onChange={(e) => setTag(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-2xl bg-[#FFF9F5] border border-orange-100 text-xs font-black text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:bg-white"
-              >
-                {GENRES.map((g) => (
-                  <option key={g} value={g}>
-                    {g}
-                  </option>
-                ))}
-              </select>
+                placeholder="장르를 직접 입력하세요 (예: 발라드, 힙합, Lo-Fi, 어쿠스틱, K-POP, 애니OST)"
+                className="w-full px-4 py-2.5 rounded-2xl bg-[#FFF9F5] border border-orange-100 text-xs sm:text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:bg-white transition-all"
+              />
+
+              {/* Quick suggestion tags */}
+              <div className="mt-2">
+                <span className="block text-[10px] sm:text-[11px] font-bold text-slate-400 mb-1.5">
+                  추천 장르 (클릭 시 자동 입력):
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {SUGGESTED_GENRES.map((g) => (
+                    <button
+                      key={g}
+                      type="button"
+                      onClick={() => setTag(g)}
+                      className={`px-2.5 py-1 rounded-xl text-[11px] font-black transition-all ${
+                        tag.trim().toLowerCase() === g.toLowerCase()
+                          ? 'bg-[#FF6B35] text-white shadow-xs scale-105'
+                          : 'bg-orange-50 text-slate-600 hover:bg-orange-100 hover:text-[#FF6B35]'
+                      }`}
+                    >
+                      #{g}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
+          </div>
+
+          {/* 5. Song Lyrics (가사 입력) */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-xs font-black text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                <FileText className="w-3.5 h-3.5 text-[#FF6B35]" />
+                <span>노래 가사 (선택)</span>
+              </label>
+              <span className="text-[11px] text-slate-400 font-medium">줄바꿈 지원 • 가사보기 지원</span>
+            </div>
+            <textarea
+              rows={4}
+              value={lyrics}
+              onChange={(e) => setLyrics(e.target.value)}
+              placeholder="노래 가사를 입력해주세요. 가사보기 버튼을 통해 등록된 가사 전체가 표시됩니다.&#10;예:&#10;푸른 바다 저 너머로&#10;우리의 꿈이 피어나네..."
+              className="w-full px-4 py-3 rounded-2xl bg-[#FFF9F5] border border-orange-100 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#FF6B35] focus:bg-white resize-y transition-all text-slate-900 leading-relaxed placeholder:text-slate-400"
+            />
           </div>
 
           {/* Modal Submit Buttons */}

@@ -10,6 +10,7 @@ import {
   Repeat,
   Heart,
   User,
+  FileText,
 } from 'lucide-react';
 import { PlayerState } from '../types';
 import { formatTime } from '../utils/audioSynth';
@@ -24,6 +25,7 @@ interface AudioPlayerBarProps {
   onToggleMute: () => void;
   onToggleLoop: () => void;
   onToggleLike: (id: string) => void;
+  onOpenLyrics?: () => void;
 }
 
 export const AudioPlayerBar: React.FC<AudioPlayerBarProps> = ({
@@ -36,6 +38,7 @@ export const AudioPlayerBar: React.FC<AudioPlayerBarProps> = ({
   onToggleMute,
   onToggleLoop,
   onToggleLike,
+  onOpenLyrics,
 }) => {
   const { currentSong, isPlaying, currentTime, duration, volume, isMuted, isLooping } = playerState;
   const progressBarRef = useRef<HTMLDivElement>(null);
@@ -117,6 +120,21 @@ export const AudioPlayerBar: React.FC<AudioPlayerBarProps> = ({
             >
               <Heart className={`w-4 h-4 ${currentSong.likes > 0 ? 'fill-[#FF6B35] text-[#FF6B35]' : ''}`} />
             </button>
+
+            {onOpenLyrics && (
+              <button
+                type="button"
+                onClick={onOpenLyrics}
+                className={`p-2 rounded-xl active:scale-90 transition-all ${
+                  currentSong.lyrics
+                    ? 'text-[#FF6B35] bg-orange-100 font-black'
+                    : 'text-slate-400 hover:text-[#FF6B35]'
+                }`}
+                title="가사보기"
+              >
+                <FileText className="w-4 h-4" />
+              </button>
+            )}
 
             <button
               type="button"
@@ -281,6 +299,22 @@ export const AudioPlayerBar: React.FC<AudioPlayerBarProps> = ({
 
           {/* Right: Volume & Extra Controls */}
           <div className="flex items-center justify-end gap-3 w-1/3">
+            {onOpenLyrics && (
+              <button
+                type="button"
+                onClick={onOpenLyrics}
+                className={`px-3 py-1.5 rounded-xl text-xs font-black inline-flex items-center gap-1.5 transition-all ${
+                  currentSong.lyrics
+                    ? 'bg-orange-100 hover:bg-[#FF6B35] text-[#FF6B35] hover:text-white shadow-2xs hover:shadow-sm'
+                    : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+                }`}
+                title="전체 가사보기"
+              >
+                <FileText className="w-3.5 h-3.5" />
+                <span>가사보기</span>
+              </button>
+            )}
+
             <button
               type="button"
               onClick={onToggleMute}

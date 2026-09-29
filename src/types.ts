@@ -8,6 +8,7 @@ export interface Song {
   duration?: number; // in seconds
   createdAt: string;
   description?: string;
+  lyrics?: string;
   driveLink?: string;
   likes: number;
   tags?: string[];

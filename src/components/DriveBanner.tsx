@@ -16,8 +16,6 @@ export const DriveBanner: React.FC<DriveBannerProps> = ({ totalSongs }) => {
         <div className="space-y-3 max-w-3xl">
           <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-teal-100 text-xs font-black tracking-wide">
             <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
-            <span className="text-white font-bold">학생 창작 음악 갤러리</span>
-            <span className="w-1.5 h-1.5 rounded-full bg-[#FF6B35]" />
             <span className="text-teal-200 font-bold">{totalSongs}곡 실시간 공유 중</span>
           </div>
 
@@ -31,7 +29,7 @@ export const DriveBanner: React.FC<DriveBannerProps> = ({ totalSongs }) => {
                 우리들의 이야기
               </h1>
               <p className="text-teal-100/90 text-sm sm:text-base font-medium mt-0.5">
-                학생들이 직접 작곡하고 표현한 생생하고 따뜻한 멜로디를 함께 감상해보세요.
+                학생들의 솔직한 이야기에 AI의 감각을 더해 완성한, 생생하고 따뜻한 멜로디를 감상해 보세요.
               </p>
             </div>
           </div>
