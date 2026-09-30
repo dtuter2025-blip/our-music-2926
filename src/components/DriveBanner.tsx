@@ -28,14 +28,23 @@ export const DriveBanner: React.FC<DriveBannerProps> = ({ totalSongs }) => {
               <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight text-white flex items-center gap-2">
                 우리들의 이야기
               </h1>
-              <p className="text-teal-100/90 text-sm sm:text-base font-medium mt-0.5">
-                학생들의 솔직한 이야기에 AI의 감각을 더해 완성한, 생생하고 따뜻한 멜로디를 감상해 보세요.
-              </p>
             </div>
+          </div>
+
+          <div className="space-y-2.5 text-teal-100/90 text-sm sm:text-[15px] font-normal leading-relaxed border-t border-white/10 pt-3">
+            <p className="font-semibold text-white/95">
+              열일곱의 계절, &apos;학교&apos;와 &apos;우리 반&apos;은 아이들에게 어떤 의미로 남겨질까요?
+            </p>
+            <p className="text-teal-100/85">
+              매일 겪는 오늘 하루와 말 못 할 고민들, 그리고 과거의 나와 미래의 나에게 건네는 진솔한 고백까지. 아이들이 직접 적어 내려간 솔직한 노랫말 위에 AI의 감각적인 선율을 얹어 하나의 다이어리 같은 음악을 완성했습니다.
+            </p>
+            <p className="text-teal-200/90">
+              그 시절을 지나는 아이들의 진솔한 숨결이 담긴 이 곡들이, 누군가에게는 따뜻한 위로가 되고 또 누군가에게는 잊고 있던 청춘의 한 페이지를 떠올리는 아련한 선율이 되기를 바랍니다.
+            </p>
           </div>
         </div>
 
-        <div className="hidden lg:flex items-center gap-2 bg-white/10 backdrop-blur-md px-4 py-3 rounded-2xl border border-white/15 text-xs text-teal-100 font-bold">
+        <div className="hidden xl:flex items-center gap-2 bg-white/10 backdrop-blur-md px-4 py-3 rounded-2xl border border-white/15 text-xs text-teal-100 font-bold flex-shrink-0 self-start lg:self-center">
           <Music2 className="w-4 h-4 text-amber-300 animate-bounce" />
           <span>모든 기기에서 실시간으로 함께 듣는 음악</span>
         </div>
