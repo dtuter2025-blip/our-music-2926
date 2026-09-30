@@ -1,163 +1,256 @@
 import {
+  ref,
+  uploadBytesResumable,
+  getDownloadURL,
+  deleteObject,
+} from 'firebase/storage';
+import {
   doc,
   setDoc,
-  getDoc,
-  getDocs,
   deleteDoc,
   collection,
-  writeBatch,
-  query,
-  orderBy,
+  getDocs,
 } from 'firebase/firestore';
-import { db } from '../firebase';
+import { db, storage } from '../firebase';
 import { Song } from '../types';
 
-const CHUNK_SIZE = 450000; // ~450 KB per chunk (Firestore limit is 1MB)
-const audioBlobCache = new Map<string, string>();
-
 /**
- * Convert base64 data URL to Blob URL for high-performance audio playback & memory efficiency
+ * 1. Upload file directly to Firebase Cloud Storage with real-time progress callback
  */
-export function dataUrlToBlobUrl(dataUrl: string): string {
-  try {
-    const parts = dataUrl.split(',');
-    const mime = parts[0].match(/:(.*?);/)?.[1] || 'audio/mp3';
-    const b64 = parts[1];
-    const byteCharacters = atob(b64);
-    const byteNumbers = new Array(byteCharacters.length);
-    for (let i = 0; i < byteCharacters.length; i++) {
-      byteNumbers[i] = byteCharacters.charCodeAt(i);
-    }
-    const byteArray = new Uint8Array(byteNumbers);
-    const blob = new Blob([byteArray], { type: mime });
-    return URL.createObjectURL(blob);
-  } catch (e) {
-    return dataUrl;
-  }
+export async function uploadFileToStorage(
+  file: File,
+  folder: 'songs' | 'covers' = 'songs',
+  onProgress?: (percent: number, statusMsg: string) => void
+): Promise<{ downloadUrl: string; storagePath: string }> {
+  // Sanitize filename and make unique
+  const timestamp = Date.now();
+  const safeName = file.name.replace(/[^a-zA-Z0-9가-힣._-]/g, '_');
+  const storagePath = `${folder}/${timestamp}_${safeName}`;
+  const storageRef = ref(storage, storagePath);
+
+  const metadata = {
+    contentType: file.type || (folder === 'songs' ? 'audio/mpeg' : 'image/jpeg'),
+  };
+
+  const uploadTask = uploadBytesResumable(storageRef, file, metadata);
+
+  return new Promise((resolve, reject) => {
+    uploadTask.on(
+      'state_changed',
+      (snapshot) => {
+        if (snapshot.totalBytes > 0) {
+          const percent = Math.round(
+            (snapshot.bytesTransferred / snapshot.totalBytes) * 100
+          );
+          onProgress?.(
+            percent,
+            `Firebase Cloud Storage 업로드 중... (${percent}%)`
+          );
+        }
+      },
+      (error) => {
+        console.error('Firebase Storage upload error:', error);
+        reject(new Error(`Storage 업로드 실패: ${error.message}`));
+      },
+      async () => {
+        try {
+          onProgress?.(100, 'Storage 업로드 완료, Download URL 발급 중...');
+          // 2. Obtain download URL
+          const downloadUrl = await getDownloadURL(uploadTask.snapshot.ref);
+          resolve({ downloadUrl, storagePath });
+        } catch (err: any) {
+          reject(new Error(`Download URL 생성 실패: ${err.message}`));
+        }
+      }
+    );
+  });
 }
 
 /**
- * Save a song and chunk large audio files across Firestore subcollection
+ * 3. Save bundled song metadata (with Storage Download URL, lyrics, description) to Firestore
  */
-export async function saveSongWithAudio(
-  newSongData: Omit<Song, 'id' | 'likes'>,
-  onProgress?: (step: string) => void
+export async function saveSongToFirestore(
+  songData: Omit<Song, 'id' | 'likes'>
 ): Promise<Song> {
   const songId = `student-song-${Date.now()}`;
-  const rawAudio = newSongData.audioUrl;
 
-  // Split audio string into chunks
-  const chunks: string[] = [];
-  for (let i = 0; i < rawAudio.length; i += CHUNK_SIZE) {
-    chunks.push(rawAudio.substring(i, i + CHUNK_SIZE));
-  }
-
-  onProgress?.('음악 파일 클라우드 분할 저장 중...');
-
-  // Save main song document (without full heavy audio string to stay well under 1MB)
   const songDoc: Song = {
     id: songId,
-    title: newSongData.title.trim() || '무제',
-    artist: newSongData.artist.trim() || '학생',
-    coverUrl: newSongData.coverUrl || 'https://images.unsplash.com/photo-1493225255756-d9584f8606e9?auto=format&fit=crop&q=80&w=600',
-    audioUrl: chunks.length === 1 && rawAudio.length < 500000 ? rawAudio : '', // Store inline only if very small
-    fileName: newSongData.fileName || 'student_song.mp3',
-    duration: newSongData.duration || 0,
-    createdAt: newSongData.createdAt,
-    description: newSongData.description || '',
-    lyrics: newSongData.lyrics ? newSongData.lyrics.trim() : '',
+    title: songData.title.trim() || '무제',
+    artist: songData.artist.trim() || '학생',
+    coverUrl:
+      songData.coverUrl ||
+      'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=600&q=80',
+    audioUrl: songData.audioUrl, // Direct Firebase Storage Download URL
+    storagePath: songData.storagePath || '',
+    fileName: songData.fileName || 'music.mp3',
+    duration: songData.duration || 0,
+    createdAt: songData.createdAt,
+    description: songData.description ? songData.description.trim() : '',
+    lyrics: songData.lyrics ? songData.lyrics.trim() : '',
     likes: 0,
-    tags: newSongData.tags || ['발라드 (Ballad)'],
-    chunkCount: chunks.length,
+    tags: songData.tags && songData.tags.length > 0 ? songData.tags : ['자작곡'],
   };
 
   const cleanDoc = JSON.parse(JSON.stringify(songDoc));
   await setDoc(doc(db, 'songs', songId), cleanDoc);
 
-  // If chunked, save chunks to subcollection
-  if (chunks.length > 1 || !songDoc.audioUrl) {
-    const batchSize = 10;
-    for (let i = 0; i < chunks.length; i += batchSize) {
-      const batch = writeBatch(db);
-      const slice = chunks.slice(i, i + batchSize);
-      slice.forEach((chunkData, index) => {
-        const chunkIndex = i + index;
-        const chunkRef = doc(db, 'songs', songId, 'chunks', `chunk_${String(chunkIndex).padStart(4, '0')}`);
-        batch.set(chunkRef, { index: chunkIndex, data: chunkData });
-      });
-      await batch.commit();
-    }
-  }
-
-  // Pre-cache the blob URL locally
-  const blobUrl = dataUrlToBlobUrl(rawAudio);
-  audioBlobCache.set(songId, blobUrl);
-
-  return {
-    ...songDoc,
-    audioUrl: blobUrl,
-  };
+  return songDoc;
 }
 
 /**
- * Fetch and reassemble chunked audio from Firestore
+ * Full sequential workflow:
+ * 1. Upload MP3 to Firebase Cloud Storage
+ * 2. Get Download URL
+ * 3. Package metadata with lyrics, description, and Download URL into Firestore
  */
-export async function getPlayableAudioUrl(song: Song): Promise<string> {
-  // Check memory cache first
-  if (audioBlobCache.has(song.id)) {
-    return audioBlobCache.get(song.id)!;
-  }
-
-  // If already stored inline
-  if (song.audioUrl && song.audioUrl.startsWith('data:')) {
-    const blobUrl = dataUrlToBlobUrl(song.audioUrl);
-    audioBlobCache.set(song.id, blobUrl);
-    return blobUrl;
-  }
-
-  // Fetch chunks from Firestore subcollection
-  try {
-    const chunksCol = collection(db, 'songs', song.id, 'chunks');
-    const q = query(chunksCol, orderBy('index', 'asc'));
-    const snap = await getDocs(q);
-
-    if (snap.empty) {
-      return song.audioUrl;
-    }
-
-    const chunkPieces: string[] = [];
-    snap.forEach((d) => {
-      const chunkData = d.data();
-      if (chunkData.data) {
-        chunkPieces.push(chunkData.data);
-      }
+export async function uploadAndSaveSong(
+  params: {
+    audioFile: File;
+    coverFile?: File | null;
+    presetCoverUrl: string;
+    title: string;
+    artist: string;
+    description?: string;
+    lyrics?: string;
+    tag: string;
+  },
+  onProgress?: (percent: number, statusMsg: string) => void
+): Promise<Song> {
+  // Step 1: Upload MP3 to Firebase Cloud Storage
+  onProgress?.(5, 'Firebase Cloud Storage에 MP3 파일 업로드 준비 중...');
+  const { downloadUrl: audioDownloadUrl, storagePath: audioStoragePath } =
+    await uploadFileToStorage(params.audioFile, 'songs', (pct) => {
+      // Map 0..100 to 10..75%
+      const overall = Math.round(10 + (pct * 0.65));
+      onProgress?.(overall, `Firebase Cloud Storage에 MP3 업로드 중... (${pct}%)`);
     });
 
-    const fullDataUrl = chunkPieces.join('');
-    const blobUrl = dataUrlToBlobUrl(fullDataUrl);
-    audioBlobCache.set(song.id, blobUrl);
-    return blobUrl;
-  } catch (err) {
-    console.error('Failed to load chunked audio:', err);
-    return song.audioUrl;
+  // Step 2: Handle Cover Image (custom upload or preset)
+  let finalCoverUrl = params.presetCoverUrl;
+  let coverStoragePath = '';
+  if (params.coverFile) {
+    onProgress?.(80, '커버 이미지를 Cloud Storage에 업로드 중...');
+    try {
+      const coverResult = await uploadFileToStorage(
+        params.coverFile,
+        'covers'
+      );
+      finalCoverUrl = coverResult.downloadUrl;
+      coverStoragePath = coverResult.storagePath;
+    } catch (err) {
+      console.warn('Cover upload failed, falling back to preset:', err);
+    }
   }
+
+  // Step 3: Bundle metadata and save to Firestore
+  onProgress?.(90, '곡 정보, 가사 및 Storage URL을 Firestore에 저장 중...');
+  const today = new Date();
+  const dateStr = `${today.getFullYear()}.${String(today.getMonth() + 1).padStart(
+    2,
+    '0'
+  )}.${String(today.getDate()).padStart(2, '0')}`;
+
+  const cleanTag = params.tag.trim().replace(/^#/, '') || '자작곡';
+
+  const savedSong = await saveSongToFirestore({
+    title: params.title,
+    artist: params.artist,
+    coverUrl: finalCoverUrl,
+    audioUrl: audioDownloadUrl,
+    storagePath: audioStoragePath,
+    fileName: params.audioFile.name,
+    createdAt: dateStr,
+    description: params.description || '',
+    lyrics: params.lyrics || '',
+    tags: [cleanTag],
+  });
+
+  onProgress?.(100, '음원 등록이 완료되었습니다!');
+  return savedSong;
 }
 
 /**
- * Cleanly delete song and all its subcollection chunks
+ * Return playable audio URL.
+ * If already a direct HTTP/HTTPS URL (Firebase Storage Download URL), returns directly!
+ * Handles legacy chunked songs if any exist.
  */
-export async function deleteSongWithChunks(songId: string): Promise<void> {
+export async function getPlayableAudioUrl(song: Song): Promise<string> {
+  // If it's a direct Storage URL or external HTTP/HTTPS URL, stream directly!
+  if (song.audioUrl && (song.audioUrl.startsWith('http://') || song.audioUrl.startsWith('https://'))) {
+    return song.audioUrl;
+  }
+
+  // If stored as data URL
+  if (song.audioUrl && song.audioUrl.startsWith('data:')) {
+    return song.audioUrl;
+  }
+
+  // Fallback for legacy chunked songs
   try {
-    // Delete chunks
+    const chunksCol = collection(db, 'songs', song.id, 'chunks');
+    const snap = await getDocs(chunksCol);
+    if (!snap.empty) {
+      const pieces: string[] = [];
+      const docs = snap.docs.sort((a, b) => {
+        const idxA = a.data().index ?? 0;
+        const idxB = b.data().index ?? 0;
+        return idxA - idxB;
+      });
+      docs.forEach((d) => {
+        if (d.data().data) pieces.push(d.data().data);
+      });
+      if (pieces.length > 0) {
+        return pieces.join('');
+      }
+    }
+  } catch (err) {
+    console.warn('Legacy chunk lookup failed:', err);
+  }
+
+  return song.audioUrl;
+}
+
+/**
+ * Delete song from Firestore and clean up audio file from Firebase Cloud Storage
+ */
+export async function deleteSongWithStorage(
+  songId: string,
+  storagePath?: string,
+  audioUrl?: string
+): Promise<void> {
+  // 1. Delete from Firebase Cloud Storage if storagePath exists
+  if (storagePath) {
+    try {
+      const fileRef = ref(storage, storagePath);
+      await deleteObject(fileRef);
+    } catch (err) {
+      console.warn('Storage file deletion note:', err);
+    }
+  } else if (audioUrl && audioUrl.includes('firebasestorage.googleapis.com')) {
+    try {
+      const fileRef = ref(storage, audioUrl);
+      await deleteObject(fileRef);
+    } catch (err) {
+      console.warn('Storage file deletion by URL note:', err);
+    }
+  }
+
+  // 2. Clean up any legacy subcollection chunks
+  try {
     const chunksCol = collection(db, 'songs', songId, 'chunks');
     const snap = await getDocs(chunksCol);
     for (const d of snap.docs) {
       await deleteDoc(d.ref);
     }
-    // Delete main song
-    await deleteDoc(doc(db, 'songs', songId));
-    audioBlobCache.delete(songId);
   } catch (e) {
-    console.error('Error deleting song chunks:', e);
+    // ignore
   }
+
+  // 3. Delete song document from Firestore
+  await deleteDoc(doc(db, 'songs', songId));
 }
+
+// Backward-compatible exports
+export const saveSongWithAudio = saveSongToFirestore;
+export const deleteSongWithChunks = (songId: string) => deleteSongWithStorage(songId);

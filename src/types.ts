@@ -4,6 +4,7 @@ export interface Song {
   artist: string; // 학생 이름 / 학급
   coverUrl: string;
   audioUrl: string;
+  storagePath?: string;
   fileName?: string;
   duration?: number; // in seconds
   createdAt: string;

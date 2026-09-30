@@ -28,9 +28,8 @@ import { db } from './firebase';
 import { Song, PlayerState } from './types';
 import { formatTime } from './utils/audioSynth';
 import {
-  saveSongWithAudio,
   getPlayableAudioUrl,
-  deleteSongWithChunks,
+  deleteSongWithStorage,
 } from './utils/audioStorage';
 import { DriveBanner } from './components/DriveBanner';
 import { SongCard } from './components/SongCard';
@@ -322,19 +321,11 @@ export default function App() {
     }
   };
 
-  // Add Song to Firestore (with chunking for any file size)
-  const handleAddSong = async (
-    newSongData: Omit<Song, 'id' | 'likes'>,
-    onProgress?: (msg: string) => void
-  ) => {
-    const createdSong = await saveSongWithAudio(newSongData, onProgress);
-    await handlePlaySong(createdSong);
-  };
-
-  // Delete Song from Firestore (Only accessible by admin)
+  // Delete Song from Firestore and Cloud Storage (Only accessible by admin)
   const handleDeleteSong = async (id: string) => {
     if (!isAdmin) return;
-    if (confirm('이 음원을 모든 기기 목록에서 영구 삭제하시겠습니까?')) {
+    const targetSong = songs.find((s) => s.id === id);
+    if (confirm('이 음원을 모든 기기 목록 및 클라우드에서 영구 삭제하시겠습니까?')) {
       try {
         if (playerState.currentSong?.id === id) {
           audioRef.current?.pause();
@@ -345,7 +336,7 @@ export default function App() {
             currentSong: null,
           }));
         }
-        await deleteSongWithChunks(id);
+        await deleteSongWithStorage(id, targetSong?.storagePath, targetSong?.audioUrl);
       } catch (err) {
         console.error('Failed to delete song:', err);
       }
@@ -784,7 +775,9 @@ export default function App() {
         isOpen={isUploadModalOpen}
         isAdmin={isAdmin}
         onClose={() => setIsUploadModalOpen(false)}
-        onAddSong={handleAddSong}
+        onSongCreated={(newSong) => {
+          handlePlaySong(newSong);
+        }}
       />
 
       {/* Admin Login/Logout Modal */}
