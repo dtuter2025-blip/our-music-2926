@@ -12,6 +12,7 @@ export interface Song {
   lyrics?: string;
   driveLink?: string;
   likes: number;
+  order?: number;
   tags?: string[];
   chunkCount?: number;
 }

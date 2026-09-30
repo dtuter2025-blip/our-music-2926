@@ -13,6 +13,7 @@ import {
   Shield,
   ShieldCheck,
   FileText,
+  GripVertical,
 } from 'lucide-react';
 import {
   collection,
@@ -31,6 +32,7 @@ import {
   getPlayableAudioUrl,
   deleteSongWithStorage,
   getLocalSongs,
+  reorderSongsInStorage,
 } from './utils/audioStorage';
 import { DriveBanner } from './components/DriveBanner';
 import { SongCard } from './components/SongCard';
@@ -72,12 +74,77 @@ export default function App() {
   const [selectedTag, setSelectedTag] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'latest' | 'likes' | 'title'>('latest');
 
+  // Drag-and-drop state for Admin mode
+  const [draggedSongId, setDraggedSongId] = useState<string | null>(null);
+  const [dragOverSongId, setDragOverSongId] = useState<string | null>(null);
+
   // Modal State
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [selectedLyricsSong, setSelectedLyricsSong] = useState<Song | null>(null);
   const [isLyricsModalOpen, setIsLyricsModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingSong, setEditingSong] = useState<Song | null>(null);
+
+  // Admin Drag & Drop Handlers
+  const handleDragStart = (e: React.DragEvent, id: string) => {
+    if (!isAdmin) return;
+    e.dataTransfer.setData('text/plain', id);
+    e.dataTransfer.effectAllowed = 'move';
+    setDraggedSongId(id);
+  };
+
+  const handleDragOver = (e: React.DragEvent, id: string) => {
+    if (!isAdmin) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOverSongId !== id) {
+      setDragOverSongId(id);
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent, id: string) => {
+    if (!isAdmin) return;
+    if (dragOverSongId === id) {
+      setDragOverSongId(null);
+    }
+  };
+
+  const handleDrop = async (e: React.DragEvent, targetId: string) => {
+    if (!isAdmin) return;
+    e.preventDefault();
+    const sourceId = e.dataTransfer.getData('text/plain') || draggedSongId;
+    setDraggedSongId(null);
+    setDragOverSongId(null);
+
+    if (!sourceId || sourceId === targetId) return;
+
+    const currentList = [...songs];
+    const sourceIdx = currentList.findIndex((s) => s.id === sourceId);
+    const targetIdx = currentList.findIndex((s) => s.id === targetId);
+
+    if (sourceIdx === -1 || targetIdx === -1) return;
+
+    const [moved] = currentList.splice(sourceIdx, 1);
+    currentList.splice(targetIdx, 0, moved);
+
+    const reordered = currentList.map((item, idx) => ({
+      ...item,
+      order: idx,
+    }));
+
+    setSongs(reordered);
+
+    try {
+      await reorderSongsInStorage(reordered);
+    } catch (err) {
+      console.warn('Reorder save notice:', err);
+    }
+  };
+
+  const handleDragEnd = () => {
+    setDraggedSongId(null);
+    setDragOverSongId(null);
+  };
 
   const handleOpenLyrics = (song: Song) => {
     setSelectedLyricsSong(song);
@@ -161,6 +228,14 @@ export default function App() {
         (localList || []).forEach((s) => map.set(s.id, s));
         loadedSongs.forEach((s) => map.set(s.id, s));
         const mergedSongs = Array.from(map.values());
+        mergedSongs.sort((a, b) => {
+          if (a.order !== undefined && b.order !== undefined) {
+            return a.order - b.order;
+          }
+          if (a.order !== undefined) return -1;
+          if (b.order !== undefined) return 1;
+          return (b.createdAt || '').localeCompare(a.createdAt || '');
+        });
 
         setSongs(mergedSongs);
         setLoading(false);
@@ -416,7 +491,12 @@ export default function App() {
   const sortedSongs = [...filteredSongs].sort((a, b) => {
     if (sortBy === 'likes') return b.likes - a.likes;
     if (sortBy === 'title') return a.title.localeCompare(b.title);
-    return 0;
+    if (a.order !== undefined && b.order !== undefined) {
+      return a.order - b.order;
+    }
+    if (a.order !== undefined) return -1;
+    if (b.order !== undefined) return 1;
+    return (b.createdAt || '').localeCompare(a.createdAt || '');
   });
 
   // Extract available tags dynamically from all registered songs
@@ -789,21 +869,44 @@ export default function App() {
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {sortedSongs.map((song) => (
-                <SongCard
-                  key={song.id}
-                  song={song}
-                  isPlaying={playerState.isPlaying}
-                  isCurrent={playerState.currentSong?.id === song.id}
-                  onPlay={handlePlaySong}
-                  onToggleLike={handleToggleLike}
-                  onDelete={isAdmin ? handleDeleteSong : undefined}
-                  onEdit={handleOpenEdit}
-                  onOpenLyrics={handleOpenLyrics}
-                />
-              ))}
-            </div>
+            <>
+              {isAdmin && sortedSongs.length > 1 && (
+                <div className="flex items-center justify-between gap-2 px-4.5 py-3 rounded-2xl bg-orange-50/90 border border-orange-200/90 text-orange-950 text-xs font-bold mb-5 shadow-xs animate-fadeIn">
+                  <div className="flex items-center gap-2">
+                    <GripVertical className="w-4 h-4 text-[#FF6B35]" />
+                    <span>
+                      관리자 모드: 카드를 마우스로 끌어서 원하는 곡 순서로 바로 변경(드래그 앤 드롭)할 수 있습니다.
+                    </span>
+                  </div>
+                  <span className="text-[11px] font-black px-2.5 py-1 rounded-full bg-[#FF6B35] text-white whitespace-nowrap shadow-xs">
+                    순서 이동 ON
+                  </span>
+                </div>
+              )}
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                {sortedSongs.map((song) => (
+                  <SongCard
+                    key={song.id}
+                    song={song}
+                    isPlaying={playerState.isPlaying}
+                    isCurrent={playerState.currentSong?.id === song.id}
+                    onPlay={handlePlaySong}
+                    onToggleLike={handleToggleLike}
+                    onDelete={isAdmin ? handleDeleteSong : undefined}
+                    onEdit={isAdmin ? handleOpenEdit : undefined}
+                    onOpenLyrics={handleOpenLyrics}
+                    draggable={isAdmin}
+                    onDragStart={handleDragStart}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                    onDragEnd={handleDragEnd}
+                    isDragging={draggedSongId === song.id}
+                    isDragOver={dragOverSongId === song.id}
+                  />
+                ))}
+              </div>
+            </>
           )}
 
           {/* Bottom spacing spacer so floating player never obstructs the lowest cards */}
@@ -857,7 +960,7 @@ export default function App() {
         song={selectedLyricsSong}
         isPlaying={playerState.isPlaying && playerState.currentSong?.id === selectedLyricsSong?.id}
         onPlay={handlePlaySong}
-        onEdit={handleOpenEdit}
+        onEdit={isAdmin ? handleOpenEdit : undefined}
         onClose={() => {
           setIsLyricsModalOpen(false);
           setSelectedLyricsSong(null);

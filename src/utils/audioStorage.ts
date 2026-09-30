@@ -139,6 +139,7 @@ export async function saveSongToFirestore(
     description: songData.description ? songData.description.trim() : '',
     lyrics: songData.lyrics ? songData.lyrics.trim() : '',
     likes: 0,
+    order: songData.order ?? 0,
     tags: songData.tags && songData.tags.length > 0 ? songData.tags : ['자작곡'],
   };
 
@@ -389,6 +390,24 @@ export async function updateSongInStorage(
   }
 
   return updatedSong;
+}
+
+/**
+ * Persist reordered song list sequence to both IndexedDB and Firestore
+ */
+export async function reorderSongsInStorage(reorderedSongs: Song[]): Promise<void> {
+  const updates = reorderedSongs.map(async (song, index) => {
+    const updated = { ...song, order: index };
+    await saveLocalSong(updated);
+    try {
+      const songRef = doc(db, 'songs', song.id);
+      await setDoc(songRef, { order: index }, { merge: true });
+    } catch (e) {
+      console.warn('Firestore reorder update error:', e);
+    }
+  });
+
+  await Promise.all(updates);
 }
 
 export { getLocalSongs };

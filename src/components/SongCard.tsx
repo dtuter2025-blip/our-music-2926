@@ -1,5 +1,5 @@
 import React from 'react';
-import { Play, Pause, Heart, User, Calendar, Volume2, Trash2, FileText, Edit3 } from 'lucide-react';
+import { Play, Pause, Heart, User, Calendar, Volume2, Trash2, FileText, Edit3, GripVertical } from 'lucide-react';
 import { Song } from '../types';
 
 interface SongCardProps {
@@ -11,6 +11,15 @@ interface SongCardProps {
   onDelete?: (id: string) => void;
   onEdit?: (song: Song) => void;
   onOpenLyrics?: (song: Song) => void;
+  // Drag-and-drop props for Admin mode
+  draggable?: boolean;
+  onDragStart?: (e: React.DragEvent, id: string) => void;
+  onDragOver?: (e: React.DragEvent, id: string) => void;
+  onDragLeave?: (e: React.DragEvent, id: string) => void;
+  onDrop?: (e: React.DragEvent, id: string) => void;
+  onDragEnd?: (e: React.DragEvent) => void;
+  isDragging?: boolean;
+  isDragOver?: boolean;
 }
 
 export const SongCard: React.FC<SongCardProps> = ({
@@ -22,13 +31,33 @@ export const SongCard: React.FC<SongCardProps> = ({
   onDelete,
   onEdit,
   onOpenLyrics,
+  draggable = false,
+  onDragStart,
+  onDragOver,
+  onDragLeave,
+  onDrop,
+  onDragEnd,
+  isDragging = false,
+  isDragOver = false,
 }) => {
   const isPlayingThis = isCurrent && isPlaying;
 
   return (
     <div
+      draggable={draggable}
+      onDragStart={draggable ? (e) => onDragStart?.(e, song.id) : undefined}
+      onDragOver={draggable ? (e) => onDragOver?.(e, song.id) : undefined}
+      onDragLeave={draggable ? (e) => onDragLeave?.(e, song.id) : undefined}
+      onDrop={draggable ? (e) => onDrop?.(e, song.id) : undefined}
+      onDragEnd={draggable ? (e) => onDragEnd?.(e) : undefined}
       className={`group relative flex flex-col bg-white rounded-[32px] transition-all duration-300 overflow-hidden shadow-lg hover:shadow-2xl hover:shadow-orange-200/50 hover:-translate-y-1.5 ${
-        isPlayingThis
+        draggable ? 'cursor-grab active:cursor-grabbing' : ''
+      } ${
+        isDragging
+          ? 'opacity-35 scale-95 border-2 border-dashed border-[#FF6B35] shadow-inner'
+          : isDragOver
+          ? 'border-2 border-[#FF6B35] ring-4 ring-[#FF6B35]/30 scale-[1.02] shadow-xl'
+          : isPlayingThis
           ? 'border-2 border-[#FF6B35] ring-4 ring-orange-500/15 shadow-orange-200/60'
           : isCurrent
           ? 'border-2 border-orange-300 bg-orange-50/20'
@@ -51,9 +80,24 @@ export const SongCard: React.FC<SongCardProps> = ({
           {/* Gradient Overlay */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent opacity-75 group-hover:opacity-85 transition-opacity" />
 
+          {/* Admin Drag Handle Badge */}
+          {draggable && (
+            <div
+              className="absolute top-3 left-3 z-10 px-2.5 py-1 rounded-full bg-black/65 backdrop-blur-md text-white text-[10px] font-black flex items-center gap-1 shadow-md cursor-grab active:cursor-grabbing hover:bg-[#FF6B35] transition-colors"
+              title="마우스로 끌어서 순서를 변경할 수 있습니다"
+            >
+              <GripVertical className="w-3.5 h-3.5 text-orange-300" />
+              <span>이동</span>
+            </div>
+          )}
+
           {/* Playing Animated Wave Equalizer Badge */}
           {isPlayingThis && (
-            <div className="absolute top-3 left-3 px-3 py-1 rounded-full bg-[#FF6B35] text-white text-[11px] font-black flex items-center gap-1.5 shadow-lg shadow-orange-950/30">
+            <div
+              className={`absolute top-3 ${
+                draggable ? 'left-20' : 'left-3'
+              } px-3 py-1 rounded-full bg-[#FF6B35] text-white text-[11px] font-black flex items-center gap-1.5 shadow-lg shadow-orange-950/30`}
+            >
               <span className="flex items-end gap-0.5 h-3">
                 <span className="w-0.5 bg-white rounded-full animate-wave-1 h-3" />
                 <span className="w-0.5 bg-white rounded-full animate-wave-2 h-3" />
