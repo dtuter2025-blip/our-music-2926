@@ -216,6 +216,9 @@ export const UploadModal: React.FC<UploadModalProps> = ({
       );
 
       // Notify parent / backward compatibility
+      if (onSongCreated) {
+        onSongCreated(savedSong);
+      }
       if (onAddSong) {
         onAddSong(savedSong);
       }

@@ -30,6 +30,7 @@ import { formatTime } from './utils/audioSynth';
 import {
   getPlayableAudioUrl,
   deleteSongWithStorage,
+  getLocalSongs,
 } from './utils/audioStorage';
 import { DriveBanner } from './components/DriveBanner';
 import { SongCard } from './components/SongCard';
@@ -93,14 +94,30 @@ export default function App() {
     cleanSampleTrack();
   }, []);
 
-  // Subscribe to Firestore real-time updates
+  // Subscribe to Firestore real-time updates & load local songs
   useEffect(() => {
+    // 1. Instantly load locally cached songs from IndexedDB (instant zero-delay display)
+    getLocalSongs().then((localList) => {
+      if (localList && localList.length > 0) {
+        setSongs((prev) => {
+          const map = new Map<string, Song>();
+          prev.forEach((s) => map.set(s.id, s));
+          localList.forEach((s) => {
+            if (!map.has(s.id)) map.set(s.id, s);
+          });
+          return Array.from(map.values());
+        });
+        setLoading(false);
+      }
+    });
+
+    // 2. Subscribe to Firestore updates
     const songsCol = collection(db, 'songs');
     const q = query(songsCol, orderBy('createdAt', 'desc'));
 
     const unsubscribe = onSnapshot(
       q,
-      (snapshot) => {
+      async (snapshot) => {
         const loadedSongs: Song[] = [];
         snapshot.forEach((docSnap) => {
           const data = docSnap.data() as Song;
@@ -110,30 +127,41 @@ export default function App() {
           }
         });
 
-        setSongs(loadedSongs);
+        // Merge with any offline / locally stored songs
+        const localList = await getLocalSongs();
+        const map = new Map<string, Song>();
+        (localList || []).forEach((s) => map.set(s.id, s));
+        loadedSongs.forEach((s) => map.set(s.id, s));
+        const mergedSongs = Array.from(map.values());
+
+        setSongs(mergedSongs);
         setLoading(false);
 
         // Keep currentSong synced
         setPlayerState((prev) => {
-          if (loadedSongs.length === 0) {
+          if (mergedSongs.length === 0) {
             return { ...prev, currentSong: null, isPlaying: false };
           }
-          if (!prev.currentSong && loadedSongs.length > 0) {
-            return { ...prev, currentSong: loadedSongs[0] };
+          if (!prev.currentSong && mergedSongs.length > 0) {
+            return { ...prev, currentSong: mergedSongs[0] };
           }
           if (prev.currentSong) {
-            const updated = loadedSongs.find((s) => s.id === prev.currentSong?.id);
+            const updated = mergedSongs.find((s) => s.id === prev.currentSong?.id);
             if (updated) {
               return { ...prev, currentSong: updated };
             } else {
-              return { ...prev, currentSong: loadedSongs[0] || null };
+              return { ...prev, currentSong: mergedSongs[0] || null };
             }
           }
           return prev;
         });
       },
-      (error) => {
-        console.error('Firestore subscription error:', error);
+      async (error) => {
+        console.warn('Firestore subscription notice (loading local songs):', error);
+        const localList = await getLocalSongs();
+        if (localList && localList.length > 0) {
+          setSongs(localList);
+        }
         setLoading(false);
       }
     );
@@ -776,6 +804,7 @@ export default function App() {
         isAdmin={isAdmin}
         onClose={() => setIsUploadModalOpen(false)}
         onSongCreated={(newSong) => {
+          setSongs((prev) => [newSong, ...prev.filter((s) => s.id !== newSong.id)]);
           handlePlaySong(newSong);
         }}
       />
