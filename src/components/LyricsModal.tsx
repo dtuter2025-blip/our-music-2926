@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, FileText, Copy, Check, Play, Pause, Music, Sparkles, User, Calendar } from 'lucide-react';
+import { X, FileText, Copy, Check, Play, Pause, Music, Sparkles, User, Calendar, Edit3 } from 'lucide-react';
 import { Song } from '../types';
 
 interface LyricsModalProps {
@@ -8,6 +8,7 @@ interface LyricsModalProps {
   song: Song | null;
   isPlaying?: boolean;
   onPlay?: (song: Song) => void;
+  onEdit?: (song: Song) => void;
 }
 
 export const LyricsModal: React.FC<LyricsModalProps> = ({
@@ -16,6 +17,7 @@ export const LyricsModal: React.FC<LyricsModalProps> = ({
   song,
   isPlaying = false,
   onPlay,
+  onEdit,
 }) => {
   const [copied, setCopied] = useState(false);
   const [fontSize, setFontSize] = useState<'normal' | 'large'>('normal');
@@ -138,25 +140,42 @@ export const LyricsModal: React.FC<LyricsModalProps> = ({
             </div>
           </div>
 
-          {hasLyrics && (
-            <button
-              type="button"
-              onClick={handleCopy}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white hover:bg-orange-100/80 border border-orange-100 text-slate-700 text-[11px] font-bold shadow-2xs transition-colors"
-            >
-              {copied ? (
-                <>
-                  <Check className="w-3.5 h-3.5 text-emerald-600" />
-                  <span className="text-emerald-700 font-black">가사 복사됨!</span>
-                </>
-              ) : (
-                <>
-                  <Copy className="w-3.5 h-3.5 text-slate-400" />
-                  <span>가사 복사</span>
-                </>
-              )}
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {onEdit && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onEdit(song);
+                }}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-orange-100/90 hover:bg-[#FF6B35] text-[#FF6B35] hover:text-white text-[11px] font-black shadow-2xs transition-colors"
+                title="오타나 누락된 가사 바로 수정하기"
+              >
+                <Edit3 className="w-3.5 h-3.5" />
+                <span>가사/곡 수정</span>
+              </button>
+            )}
+
+            {hasLyrics && (
+              <button
+                type="button"
+                onClick={handleCopy}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white hover:bg-orange-100/80 border border-orange-100 text-slate-700 text-[11px] font-bold shadow-2xs transition-colors"
+              >
+                {copied ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 text-emerald-600" />
+                    <span className="text-emerald-700 font-black">가사 복사됨!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3.5 h-3.5 text-slate-400" />
+                    <span>가사 복사</span>
+                  </>
+                )}
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Lyrics Content (Scrollable) */}

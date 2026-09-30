@@ -1,5 +1,5 @@
 import React from 'react';
-import { Play, Pause, Heart, User, Calendar, Volume2, Trash2, FileText } from 'lucide-react';
+import { Play, Pause, Heart, User, Calendar, Volume2, Trash2, FileText, Edit3 } from 'lucide-react';
 import { Song } from '../types';
 
 interface SongCardProps {
@@ -9,6 +9,7 @@ interface SongCardProps {
   onPlay: (song: Song) => void;
   onToggleLike: (id: string) => void;
   onDelete?: (id: string) => void;
+  onEdit?: (song: Song) => void;
   onOpenLyrics?: (song: Song) => void;
 }
 
@@ -19,6 +20,7 @@ export const SongCard: React.FC<SongCardProps> = ({
   onPlay,
   onToggleLike,
   onDelete,
+  onEdit,
   onOpenLyrics,
 }) => {
   const isPlayingThis = isCurrent && isPlaying;
@@ -163,6 +165,17 @@ export const SongCard: React.FC<SongCardProps> = ({
           </div>
 
           <div className="flex items-center gap-1.5 flex-shrink-0">
+            {onEdit && (
+              <button
+                type="button"
+                onClick={() => onEdit(song)}
+                className="p-2 rounded-xl text-slate-400 hover:text-[#FF6B35] hover:bg-orange-50 transition-colors"
+                title="곡 정보 및 가사 수정"
+              >
+                <Edit3 className="w-4 h-4" />
+              </button>
+            )}
+
             {onDelete && (
               <button
                 type="button"

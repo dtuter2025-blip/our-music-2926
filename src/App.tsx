@@ -38,6 +38,7 @@ import { AudioPlayerBar } from './components/AudioPlayerBar';
 import { UploadModal, GENRES } from './components/UploadModal';
 import { AdminModal } from './components/AdminModal';
 import { LyricsModal } from './components/LyricsModal';
+import { EditSongModal } from './components/EditSongModal';
 
 const ADMIN_PASSWORD = 'gksksla0316';
 
@@ -75,10 +76,37 @@ export default function App() {
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [selectedLyricsSong, setSelectedLyricsSong] = useState<Song | null>(null);
   const [isLyricsModalOpen, setIsLyricsModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingSong, setEditingSong] = useState<Song | null>(null);
 
   const handleOpenLyrics = (song: Song) => {
     setSelectedLyricsSong(song);
     setIsLyricsModalOpen(true);
+  };
+
+  const handleOpenEdit = (song: Song) => {
+    setEditingSong(song);
+    setIsEditModalOpen(true);
+  };
+
+  const handleSongUpdated = (updatedSong: Song) => {
+    // 1. Update songs list
+    setSongs((prev) =>
+      prev.map((s) => (s.id === updatedSong.id ? updatedSong : s))
+    );
+
+    // 2. Keep playerState synced if current song is playing
+    if (playerState.currentSong?.id === updatedSong.id) {
+      setPlayerState((prev) => ({
+        ...prev,
+        currentSong: updatedSong,
+      }));
+    }
+
+    // 3. Keep lyrics modal synced if opened
+    if (selectedLyricsSong?.id === updatedSong.id) {
+      setSelectedLyricsSong(updatedSong);
+    }
   };
 
   // Clean up any leftover sample-track-1 on mount if present
@@ -771,6 +799,7 @@ export default function App() {
                   onPlay={handlePlaySong}
                   onToggleLike={handleToggleLike}
                   onDelete={isAdmin ? handleDeleteSong : undefined}
+                  onEdit={handleOpenEdit}
                   onOpenLyrics={handleOpenLyrics}
                 />
               ))}
@@ -828,10 +857,22 @@ export default function App() {
         song={selectedLyricsSong}
         isPlaying={playerState.isPlaying && playerState.currentSong?.id === selectedLyricsSong?.id}
         onPlay={handlePlaySong}
+        onEdit={handleOpenEdit}
         onClose={() => {
           setIsLyricsModalOpen(false);
           setSelectedLyricsSong(null);
         }}
+      />
+
+      {/* Edit Song & Lyrics Modal */}
+      <EditSongModal
+        isOpen={isEditModalOpen}
+        song={editingSong}
+        onClose={() => {
+          setIsEditModalOpen(false);
+          setEditingSong(null);
+        }}
+        onSongUpdated={handleSongUpdated}
       />
     </div>
   );

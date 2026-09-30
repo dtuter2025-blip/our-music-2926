@@ -42,8 +42,8 @@ export async function uploadFileToStorage(
   const uploadTask = uploadBytesResumable(storageRef, file, metadata);
 
   return new Promise((resolve, reject) => {
-    // 15-second timeout guard to detect missing storage bucket quickly
-    const timeoutId = setTimeout(() => {
+    // 60-second connection & upload guard (resets on each byte transfer progress)
+    let timeoutId: any = setTimeout(() => {
       try {
         uploadTask.cancel();
       } catch (e) {
@@ -51,14 +51,25 @@ export async function uploadFileToStorage(
       }
       reject(
         new Error(
-          'Firebase Storage 버킷에 연결할 수 없습니다. AI Studio Starter 프로젝트는 기본 스토리지를 제공하지 않으므로 로컬 저장소로 자동 전환합니다.'
+          'Firebase Storage 업로드 시간이 초과되었습니다. 네트워크 상태를 확인해주세요.'
         )
       );
-    }, 15000);
+    }, 60000);
 
     uploadTask.on(
       'state_changed',
       (snapshot) => {
+        // Reset timeout on active progress
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => {
+          try {
+            uploadTask.cancel();
+          } catch (e) {
+            // ignore
+          }
+          reject(new Error('업로드 중 네트워크 응답이 지연되었습니다.'));
+        }, 45000);
+
         if (snapshot.totalBytes > 0) {
           const percent = Math.round(
             (snapshot.bytesTransferred / snapshot.totalBytes) * 100
@@ -347,6 +358,37 @@ export async function deleteSongWithStorage(
   } catch (e) {
     console.warn('Firestore delete note:', e);
   }
+}
+
+/**
+ * Update song metadata (title, artist, description, lyrics, tags, coverUrl)
+ * Synchronizes to both Firestore and IndexedDB
+ */
+export async function updateSongInStorage(
+  songId: string,
+  updatedFields: Partial<Song>
+): Promise<Song> {
+  const localList = await getLocalSongs();
+  const existing = localList.find((s) => s.id === songId);
+
+  const updatedSong: Song = {
+    ...(existing || {}),
+    ...updatedFields,
+    id: songId,
+  } as Song;
+
+  // 1. Save to local IndexedDB
+  await saveLocalSong(updatedSong);
+
+  // 2. Update in Firestore
+  try {
+    const songRef = doc(db, 'songs', songId);
+    await setDoc(songRef, JSON.parse(JSON.stringify(updatedFields)), { merge: true });
+  } catch (err) {
+    console.warn('Firestore update note:', err);
+  }
+
+  return updatedSong;
 }
 
 export { getLocalSongs };
