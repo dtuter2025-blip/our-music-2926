@@ -35,6 +35,20 @@ export async function uploadFileToStorage(
   const uploadTask = uploadBytesResumable(storageRef, file, metadata);
 
   return new Promise((resolve, reject) => {
+    // 60-second timeout guard to prevent infinite hanging
+    const timeoutId = setTimeout(() => {
+      try {
+        uploadTask.cancel();
+      } catch (e) {
+        // ignore
+      }
+      reject(
+        new Error(
+          'Firebase Storage 업로드 시간이 초과되었습니다 (60초). Firebase 콘솔(Storage 메뉴)에서 "시작하기"를 눌러 스토리지가 생성되어 있는지 확인해주세요.'
+        )
+      );
+    }, 60000);
+
     uploadTask.on(
       'state_changed',
       (snapshot) => {
@@ -48,11 +62,23 @@ export async function uploadFileToStorage(
           );
         }
       },
-      (error) => {
+      (error: any) => {
+        clearTimeout(timeoutId);
         console.error('Firebase Storage upload error:', error);
-        reject(new Error(`Storage 업로드 실패: ${error.message}`));
+        
+        let friendlyMessage = error.message;
+        if (error.code === 'storage/unknown' || error.status_ === 404 || error.code === 'storage/bucket-not-found') {
+          friendlyMessage = 'Firebase Cloud Storage 버킷을 찾을 수 없습니다. Firebase 콘솔(https://console.firebase.google.com)의 [Storage] 메뉴에서 "시작하기" 버튼을 눌러 스토리지를 활성화했는지 확인해주세요.';
+        } else if (error.code === 'storage/unauthorized') {
+          friendlyMessage = 'Storage 업로드 권한이 없습니다. Firebase 콘솔의 Storage 규칙(Rules)에서 allow write를 허용해주세요.';
+        } else if (error.code === 'storage/canceled') {
+          friendlyMessage = '사용자에 의해 업로드가 취소되었습니다.';
+        }
+        
+        reject(new Error(friendlyMessage));
       },
       async () => {
+        clearTimeout(timeoutId);
         try {
           onProgress?.(100, 'Storage 업로드 완료, Download URL 발급 중...');
           // 2. Obtain download URL
